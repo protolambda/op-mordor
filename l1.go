@@ -8,7 +8,26 @@ import (
 )
 
 type L1Chain struct {
+	oracle *PreimageOracle
+	head   eth.BlockInfo
+
+	cache map[common.Hash]*PreimageBlockInfo
+
+	// oracle
+	// rpc client
 }
+
+func NewL1Chain(oracle *PreimageOracle, head eth.BlockInfo) *L1Chain {
+	return &L1Chain{
+		oracle: oracle,
+		cache:  make(map[common.Hash]*PreimageBlockInfo),
+		head:   head,
+	}
+}
+
+// TODO method to iterate back from head to number N
+
+// TODO method to request block header from pre-image oracle
 
 func (l *L1Chain) L1BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L1BlockRef, error) {
 	//TODO implement me

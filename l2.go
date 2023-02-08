@@ -7,6 +7,15 @@ import (
 )
 
 type L2Engine struct {
+	oracle *PreimageOracle
+	head   eth.BlockInfo
+}
+
+func NewL2Engine(oracle *PreimageOracle, head eth.BlockInfo) *L2Engine {
+	return &L2Engine{
+		oracle: oracle,
+		head:   head,
+	}
 }
 
 func (l *L2Engine) GetPayload(ctx context.Context, payloadId eth.PayloadID) (*eth.ExecutionPayload, error) {
