@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -41,7 +42,9 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash) (outputRoot common.H
 	l2Head, err := getHeader(l2Hash)
 	// TODO
 	l1Fetcher := NewL1Chain(oracle, l1Head)
-	l2Engine := NewL2Engine(oracle, l2Head)
+	l2BlockFetcher := NewL2BlockFetcher(oracle)
+	l2Genesis := &core.Genesis{} // TODO
+	l2Engine := NewL2Engine(logger, l2Genesis, l2BlockFetcher, l2Head)
 
 	cfg := &chaincfg.Goerli
 	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Fetcher, l2Engine, metrics.NoopMetrics)
