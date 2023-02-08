@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
@@ -14,16 +17,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-	"io"
-	"os"
 )
-
-var _ derive.Engine = (*L2Engine)(nil)
-var _ derive.L1Fetcher = (*L1Chain)(nil)
 
 func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash) (outputRoot common.Hash, err error) {
 
-	oracle := &PreimageOracle{}
+	oracle := NewPreimageOracle()
 
 	getHeader := func(blockHash common.Hash) (eth.BlockInfo, error) {
 		headInfoRrlp, err := oracle.GetPreimage(blockHash)
