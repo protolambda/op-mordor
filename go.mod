@@ -1,6 +1,6 @@
 module op-mordor
 
-go 1.20
+go 1.19
 
 require (
 	github.com/ethereum-optimism/optimism/op-node v0.10.13
