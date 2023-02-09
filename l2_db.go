@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -21,15 +22,13 @@ type PreimageBackedDB struct {
 	// attempt first: load from in-memory db of previously accessed values
 	db *memorydb.Database
 
-	// attempt second: load from external source.
-	// To hook up to the actual Geth DB with the debug_dbGet method
-	externalDBGet func(key []byte) ([]byte, error)
+	oracle L2StatePreimageOracle
 }
 
-func NewPreimageBackedDB(externalDBGet func(key []byte) ([]byte, error)) *PreimageBackedDB {
+func NewPreimageBackedDB(oracle L2StatePreimageOracle) *PreimageBackedDB {
 	return &PreimageBackedDB{
-		db:            memorydb.New(),
-		externalDBGet: externalDBGet,
+		db:     memorydb.New(),
+		oracle: oracle,
 	}
 }
 
@@ -46,7 +45,7 @@ func (p *PreimageBackedDB) Get(key []byte) ([]byte, error) {
 		return v, nil
 	}
 	if err.Error() == "not found" {
-		v, err := p.externalDBGet(key)
+		v, err := p.oracle.FetchL2MPTNode(context.TODO(), *(*[32]byte)(key))
 		if err != nil {
 			return nil, err
 		}

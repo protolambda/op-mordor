@@ -51,7 +51,7 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 	l2Head := eth.HeaderBlockInfo(l2HeadBlock.Header())
 
 	l1Fetcher := NewOracleL1Chain(l1Oracle, l1Head)
-	preDB := NewPreimageBackedDB(nil) // TODO
+	preDB := NewPreimageBackedDB(l2Oracle)
 	var conf params.ChainConfig
 	err = json.Unmarshal(l2config, &conf)
 	if err != nil {

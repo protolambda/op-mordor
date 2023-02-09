@@ -15,9 +15,13 @@ type L1PreimageOracle interface {
 	FetchL1BlockReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
 }
 
-type L2PreimageOracle interface {
+type L2StatePreimageOracle interface {
 	// FetchL2MPTNode fetches L2 state MPT node
 	FetchL2MPTNode(ctx context.Context, nodeHash common.Hash) ([]byte, error)
+}
+
+type L2PreimageOracle interface {
+	L2StatePreimageOracle
 	// FetchL2Block fetches L2 block with transactions
 	FetchL2Block(ctx context.Context, blockHash common.Hash) (*types.Block, error)
 }
