@@ -47,6 +47,6 @@ func setupRpcOracles(logger log.Logger) (L1PreimageOracle, L2PreimageOracle, err
 	}
 
 	l1Oracle := NewLoadingL1Chain(logger, l1Client, dstore)
-	l2Oracle := NewLoadingL2Chain(logger, rpcClient, dstore)
+	l2Oracle := NewLoadingL2Chain(logger, rpcClient, dstore, dstore)
 	return l1Oracle, l2Oracle, nil
 }
