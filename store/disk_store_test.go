@@ -56,7 +56,7 @@ func TestBlockStoreSource(t *testing.T) {
 	s, err := store.NewDiskStore(storePath)
 	require.NoError(t, err)
 
-	//bstore := store.BlockStore{s}
+	bstore := store.BlockStore{s}
 	bsource := store.BlockSource{s}
 
 	rndHash := testutils.RandomHash(rng)
@@ -65,6 +65,16 @@ func TestBlockStoreSource(t *testing.T) {
 		b, err := bsource.ReadBlock(rndHash)
 		requireNoDataError(t, err)
 		require.Nil(t, b)
+	})
+
+	t.Run("Store+ReadBlock", func(t *testing.T) {
+		rndBlock, _ := testutils.RandomBlock(rng, 16)
+		require.NoError(t, bstore.StoreBlock(rndBlock))
+
+		// TODO: enable after ReadTransactions is implemented
+		//block, err := bsource.ReadBlock(rndBlock.Hash())
+		//require.NoError(t, err)
+		//require.Equal(t, block, rndBlock)
 	})
 }
 
