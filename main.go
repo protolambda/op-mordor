@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,18 +16,22 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
 var _ derive.Engine = (*L2Engine)(nil)
 var _ derive.L1Fetcher = (*OracleL1Chain)(nil)
 
+//go:embed l2config.json
+var l2config []byte
+
 func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outputRoot eth.Bytes32, err error) {
 	cfg := &chaincfg.Goerli
+	// l2 config - genesis.json -
 	var l1Oracle L1PreimageOracle
 	var l2Oracle L2PreimageOracle
 	// TODO instantiate one of the two oracle modes
@@ -53,9 +59,13 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 
 	l1Fetcher := NewOracleL1Chain(l1Oracle, l1Head)
 	preDB := NewPreimageBackedDB(nil) // TODO
-	l2Genesis := &core.Genesis{}      // TODO
+	var conf params.ChainConfig
+	err = json.Unmarshal(l2config, &conf)
+	if err != nil {
+		panic(fmt.Errorf("invalid l2config json: %w", err))
+	}
 	l2Chain := NewL2Sugar(l2Head, l2Oracle, cfg)
-	l2Engine := NewL2Engine(logger, l2Genesis, l2Chain, preDB)
+	l2Engine := NewL2Engine(logger, &conf, l2Chain, preDB)
 
 	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Fetcher, l2Engine, metrics.NoopMetrics)
 	pipeline.Reset()

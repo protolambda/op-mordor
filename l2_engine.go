@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
@@ -56,7 +57,7 @@ type EngineAPI struct {
 
 	// L2 evm / chain
 	l2Database ethdb.Database
-	l2Cfg      *core.Genesis
+	l2Cfg      *params.ChainConfig
 
 	// L2 block building data
 	l2BuildingHeader *types.Header             // block header that we add txs to for block building
@@ -71,7 +72,7 @@ type EngineAPI struct {
 	payloadID beacon.PayloadID // ID of payload that is currently being built
 }
 
-func NewEngineAPI(log log.Logger, cfg *core.Genesis, sugar *L2Sugar, preDB *PreimageBackedDB) *EngineAPI {
+func NewEngineAPI(log log.Logger, cfg *params.ChainConfig, sugar *L2Sugar, preDB *PreimageBackedDB) *EngineAPI {
 	cons := beaconConsensus.New(nil)
 
 	return &EngineAPI{
@@ -149,7 +150,7 @@ func (ea *EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttribute
 		MixDigest:  common.Hash(params.PrevRandao),
 	}
 
-	header.BaseFee = misc.CalcBaseFee(ea.l2Cfg.Config, parentHeader)
+	header.BaseFee = misc.CalcBaseFee(ea.l2Cfg, parentHeader)
 
 	ea.l2BuildingHeader = header
 	ea.l2BuildingState = statedb
@@ -167,7 +168,7 @@ func (ea *EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttribute
 			return fmt.Errorf("transaction %d is not valid: %w", i, err)
 		}
 		ea.l2BuildingState.Prepare(tx.Hash(), i)
-		receipt, err := core.ApplyTransaction(ea.l2Cfg.Config, ea.chainCtx, &ea.l2BuildingHeader.Coinbase,
+		receipt, err := core.ApplyTransaction(ea.l2Cfg, ea.chainCtx, &ea.l2BuildingHeader.Coinbase,
 			ea.l2GasPool, ea.l2BuildingState, ea.l2BuildingHeader, &tx, &ea.l2BuildingHeader.GasUsed, ea.vmCfg)
 		if err != nil {
 			ea.l2TxFailed = append(ea.l2TxFailed, &tx)
@@ -187,11 +188,11 @@ func (ea *EngineAPI) endBlock() (*types.Block, error) {
 	ea.l2BuildingHeader = nil
 
 	header.GasUsed = header.GasLimit - uint64(*ea.l2GasPool)
-	header.Root = ea.l2BuildingState.IntermediateRoot(ea.l2Cfg.Config.IsEIP158(header.Number))
+	header.Root = ea.l2BuildingState.IntermediateRoot(ea.l2Cfg.IsEIP158(header.Number))
 	block := types.NewBlock(header, ea.l2Transactions, nil, ea.l2Receipts, trie.NewStackTrie(nil))
 
 	// Write state changes to db
-	root, err := ea.l2BuildingState.Commit(ea.l2Cfg.Config.IsEIP158(header.Number))
+	root, err := ea.l2BuildingState.Commit(ea.l2Cfg.IsEIP158(header.Number))
 	if err != nil {
 		return nil, fmt.Errorf("l2 state write error: %w", err)
 	}
@@ -241,7 +242,7 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 		// If the specified head matches with our local head, do nothing and keep
 		// generating the payload. It's a special corner case that a few slots are
 		// missing and we are requested to generate the payload in slot.
-	} else if ea.l2Cfg.Config.Optimism == nil { // minor L2Engine API divergence: allow proposers to reorg their own chain
+	} else if ea.l2Cfg.Optimism == nil { // minor L2Engine API divergence: allow proposers to reorg their own chain
 		panic("engine not configured as optimism engine")
 	}
 
