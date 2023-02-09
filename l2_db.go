@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/ethdb/memorydb"
@@ -15,9 +16,6 @@ func externalDBGet(cl *rpc.Client) func(key []byte) ([]byte, error) {
 		return resp, err
 	}
 }
-
-// go:linkname errMemorydbNotFound github.com/ethereum/go-ethereum/ethdb/memorydb
-var notFoundErr error
 
 type PreimageBackedDB struct {
 	// attempt first: load from in-memory db of previously accessed values
@@ -47,7 +45,7 @@ func (p *PreimageBackedDB) Get(key []byte) ([]byte, error) {
 	if err == nil {
 		return v, nil
 	}
-	if err == notFoundErr {
+	if err.Error() == "not found" {
 		v, err := p.externalDBGet(key)
 		if err != nil {
 			return nil, err

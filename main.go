@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
@@ -64,6 +65,10 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 	for {
 		if err := pipeline.Step(context.Background()); errors.Is(err, io.EOF) {
 			break
+		} else if errors.Is(err, derive.ErrTemporary) {
+			logger.Warn("Temporary error in pipeline", "err", err)
+			time.Sleep(5 * time.Second)
+			continue
 		} else if errors.Is(err, derive.NotEnoughData) {
 			logger.Debug("Data is lacking")
 			continue
