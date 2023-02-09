@@ -23,7 +23,7 @@ import (
 )
 
 var _ derive.Engine = (*L2Engine)(nil)
-var _ derive.L1Fetcher = (*L1Chain)(nil)
+var _ derive.L1Fetcher = (*LoadingL1Chain)(nil)
 
 func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash) (outputRoot eth.Bytes32, err error) {
 
@@ -45,7 +45,7 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash) (outputRoot eth.Byte
 	// TODO
 	l2Head, err := getHeader(l2Hash)
 	// TODO
-	l1Fetcher := NewL1Chain(oracle, l1Head)
+	l1Fetcher := NewOracleL1Chain(oracle, l1Head)
 	l2BlockFetcher := NewL2BlockFetcher(oracle)
 	preDB := NewPreimageBackedDB(nil) // TODO
 	l2Genesis := &core.Genesis{}      // TODO

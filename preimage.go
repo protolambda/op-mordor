@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-var MissingDataError = errors.New("missing data")
+var ErrMissingData = errors.New("missing data")
 
 type PreimageOracle struct {
 	data map[[32]byte][]byte
@@ -19,7 +19,7 @@ func NewPreimageOracle() *PreimageOracle {
 func (p *PreimageOracle) GetPreimage(key [32]byte) (v []byte, err error) {
 	bytes, ok := p.data[key]
 	if !ok {
-		return nil, MissingDataError
+		return nil, ErrMissingData
 	}
 	return bytes, nil
 }
