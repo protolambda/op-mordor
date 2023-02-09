@@ -15,10 +15,10 @@ type LoadingL2Chain struct {
 	client    *ethclient.Client
 }
 
-func NewLoadingL2Chain(rpcClient *rpc.Client) *LoadingL2Chain {
+func NewLoadingL2Chain(l2RpcClient *rpc.Client) *LoadingL2Chain {
 	return &LoadingL2Chain{
-		rpcClient: rpcClient,
-		client:    ethclient.NewClient(rpcClient),
+		rpcClient: l2RpcClient,
+		client:    ethclient.NewClient(l2RpcClient),
 	}
 }
 
