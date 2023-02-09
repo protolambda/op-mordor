@@ -15,6 +15,7 @@ type OracleL1Chain struct {
 	head eth.BlockInfo
 
 	headers      map[common.Hash]eth.BlockInfo
+	numbers      map[uint64]common.Hash
 	transactions map[common.Hash]types.Transactions
 	receipts     map[common.Hash]types.Receipts
 }
@@ -34,6 +35,10 @@ func (l *OracleL1Chain) L1BlockRefByLabel(ctx context.Context, label eth.BlockLa
 }
 
 func (l *OracleL1Chain) L1BlockRefByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
+	hash, ok := l.numbers[number]
+	if ok {
+		return l.L1BlockRefByHash(ctx, hash)
+	}
 	block := l.head
 	for block.NumberU64() > number {
 		parent, err := l.InfoByHash(ctx, block.ParentHash())
@@ -41,6 +46,7 @@ func (l *OracleL1Chain) L1BlockRefByNumber(ctx context.Context, number uint64) (
 			return eth.L1BlockRef{}, fmt.Errorf("l1 block ref by number: %w", err)
 		}
 		block = parent
+		l.numbers[block.NumberU64()] = block.Hash()
 	}
 	return eth.InfoToL1BlockRef(block), nil
 }
@@ -51,7 +57,11 @@ func (l *OracleL1Chain) FetchReceipts(ctx context.Context, blockHash common.Hash
 		return nil, nil, err
 	}
 
-	receipts, err := l.oracle.FetchL1BlockReceipts(ctx, blockHash)
+	receipts, ok := l.receipts[blockHash]
+	if ok {
+		return info, receipts, nil
+	}
+	receipts, err = l.oracle.FetchL1BlockReceipts(ctx, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,11 +83,15 @@ func (l *OracleL1Chain) InfoByHash(ctx context.Context, hash common.Hash) (eth.B
 }
 
 func (l *OracleL1Chain) headerByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error) {
+	info, ok := l.headers[hash]
+	if ok {
+		return info, nil
+	}
 	header, err := l.oracle.FetchL1Header(ctx, hash)
 	if err != nil {
 		return nil, fmt.Errorf("l1 header err: %w", err)
 	}
-	info := eth.HeaderBlockInfo(header)
+	info = eth.HeaderBlockInfo(header)
 	l.headers[hash] = info
 	return info, nil
 }
@@ -87,7 +101,11 @@ func (l *OracleL1Chain) InfoAndTxsByHash(ctx context.Context, hash common.Hash) 
 	if err != nil {
 		return nil, nil, err
 	}
-	txs, err := l.oracle.FetchL1BlockTransactions(ctx, hash)
+	txs, ok := l.transactions[hash]
+	if ok {
+		return header, txs, nil
+	}
+	txs, err = l.oracle.FetchL1BlockTransactions(ctx, hash)
 	if err != nil {
 		return nil, nil, err
 	}

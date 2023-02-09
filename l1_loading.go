@@ -7,9 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type LoadingL1Chain struct {
+	logger log.Logger
 	client *ethclient.Client
 	store  Store
 }
@@ -23,6 +25,7 @@ func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Has
 	if err != nil {
 		return nil, fmt.Errorf("storing header: %w", err)
 	}
+	l.logger.Info("Fetched L1 header", "num", h.Number)
 	return h, nil
 }
 
@@ -36,6 +39,7 @@ func (l *LoadingL1Chain) FetchL1BlockTransactions(ctx context.Context, blockHash
 	if err != nil {
 		return nil, fmt.Errorf("storing transactions: %w", err)
 	}
+	l.logger.Info("Fetched L1 tx", "num", bl.Number(), "count", txs.Len())
 	return txs, nil
 }
 
@@ -56,13 +60,15 @@ func (l *LoadingL1Chain) FetchL1BlockReceipts(ctx context.Context, blockHash com
 	if err != nil {
 		return nil, fmt.Errorf("storing receipts: %w", err)
 	}
+	l.logger.Info("Fetched L1 receipts", "hash", blockHash, "count", len(receipts))
 	return receipts, nil
 }
 
 var _ L1PreimageOracle = (*LoadingL1Chain)(nil)
 
-func NewLoadingL1Chain(client *ethclient.Client, store Store) L1PreimageOracle {
+func NewLoadingL1Chain(logger log.Logger, client *ethclient.Client, store Store) L1PreimageOracle {
 	return &LoadingL1Chain{
+		logger: logger,
 		client: client,
 		store:  store,
 	}

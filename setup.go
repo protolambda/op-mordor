@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	_ "github.com/joho/godotenv/autoload"
 )
@@ -27,7 +28,7 @@ func setupEnv() {
 	}
 }
 
-func setupRpcOracles() (L1PreimageOracle, L2PreimageOracle, error) {
+func setupRpcOracles(logger log.Logger) (L1PreimageOracle, L2PreimageOracle, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
 	defer cancel()
 
@@ -44,7 +45,7 @@ func setupRpcOracles() (L1PreimageOracle, L2PreimageOracle, error) {
 		return nil, nil, fmt.Errorf("creating disk store: %w", err)
 	}
 
-	l1Oracle := NewLoadingL1Chain(l1Client, store)
+	l1Oracle := NewLoadingL1Chain(logger, l1Client, store)
 	l2Oracle := NewLoadingL2Chain(rpcClient, BlockStore{store})
 	return l1Oracle, l2Oracle, nil
 }

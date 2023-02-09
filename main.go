@@ -34,7 +34,7 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 	var l2Oracle L2PreimageOracle
 	// TODO instantiate one of the two oracle modes
 	if rpcMode {
-		l1Oracle, l2Oracle, err = setupRpcOracles()
+		l1Oracle, l2Oracle, err = setupRpcOracles(logger)
 		if err != nil {
 			return eth.Bytes32{}, fmt.Errorf("setting up oracles: %w", err)
 		}
@@ -64,6 +64,9 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 	for {
 		if err := pipeline.Step(context.Background()); errors.Is(err, io.EOF) {
 			break
+		} else if errors.Is(err, derive.NotEnoughData) {
+			logger.Warn("Data is lacking")
+			continue
 		} else if err != nil {
 			return eth.Bytes32{}, fmt.Errorf("pipeline err: %w", err)
 		}
