@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
@@ -23,6 +24,13 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+const (
+	dialTimeout = 5 * time.Second      // TODO: flag or env
+	l1RpcURL    = "http://infura:8545" // TODO: flag or env
+	l2RpcURL    = "http://infura:8545" // TODO: flag or env
+	storePath   = "/tmp/mordor"        // TODO: flag or env
+)
+
 var _ derive.Engine = (*L2Engine)(nil)
 var _ derive.L1Fetcher = (*OracleL1Chain)(nil)
 
@@ -36,19 +44,13 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 	var l2Oracle L2PreimageOracle
 	// TODO instantiate one of the two oracle modes
 	if rpcMode {
-		rpcClient, err := rpc.Dial("http://infura:8545") // TODO: Support setting url
+		l1Oracle, l2Oracle, err = setupRpcOracles()
 		if err != nil {
-			return eth.Bytes32{}, fmt.Errorf("l1 rpc unavailable: %w", err)
+			return eth.Bytes32{}, fmt.Errorf("setting up oracles: %w", err)
 		}
-		ethClient := ethclient.NewClient(rpcClient)
-		store, err := NewDiskStore("/tmp/mordor")
-		if err != nil {
-			return eth.Bytes32{}, fmt.Errorf("create disk store: %w", err)
-		}
-		l1Oracle = NewLoadingL1Chain(ethClient, store) // TODO: Support setting dir
-		l2Oracle = nil                                 // TODO
 	} else {
 		// TODO disk-mode (or future memory-mapped oracle)
+		panic("non-rpc oracles not implemented yet")
 	}
 
 	l1Header, err := l1Oracle.FetchL1Header(context.Background(), l1Hash)
@@ -85,6 +87,28 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 	}
 	withdrawalsTrie := stateDB.StorageTrie(predeploys.L2ToL1MessagePasserAddr)
 	return rollup.ComputeL2OutputRoot(l2OutputVersion, outBlock.Hash(), outBlock.Root(), withdrawalsTrie.Hash()), nil
+}
+
+func setupRpcOracles() (L1PreimageOracle, L2PreimageOracle, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
+	defer cancel()
+
+	l1Client, err := ethclient.DialContext(ctx, l1RpcURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("dialing l1 rpc: %w", err)
+	}
+	rpcClient, err := rpc.DialContext(ctx, l2RpcURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("dialing l2 rpc: %w", err)
+	}
+	store, err := NewDiskStore(storePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating disk store: %w", err)
+	}
+
+	l1Oracle := NewLoadingL1Chain(l1Client, store)
+	l2Oracle := NewLoadingL2Chain(rpcClient, BlockStore{store})
+	return l1Oracle, l2Oracle, nil
 }
 
 func main() {
