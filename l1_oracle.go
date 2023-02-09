@@ -26,6 +26,7 @@ func NewOracleL1Chain(oracle L1PreimageOracle, head eth.BlockInfo) *OracleL1Chai
 		headers:      make(map[common.Hash]eth.BlockInfo),
 		transactions: make(map[common.Hash]types.Transactions),
 		receipts:     make(map[common.Hash]types.Receipts),
+		numbers:      make(map[uint64]common.Hash),
 		head:         head,
 	}
 }
