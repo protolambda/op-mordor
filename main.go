@@ -65,7 +65,7 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 		if err := pipeline.Step(context.Background()); errors.Is(err, io.EOF) {
 			break
 		} else if errors.Is(err, derive.NotEnoughData) {
-			logger.Warn("Data is lacking")
+			logger.Debug("Data is lacking")
 			continue
 		} else if err != nil {
 			return eth.Bytes32{}, fmt.Errorf("pipeline err: %w", err)

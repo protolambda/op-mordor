@@ -203,7 +203,7 @@ func (ea *EngineAPI) endBlock() (*types.Block, error) {
 }
 
 func (ea *EngineAPI) GetPayload(ctx context.Context, payloadId eth.PayloadID) (*eth.ExecutionPayload, error) {
-	ea.log.Trace("L2Engine API request received", "method", "GetPayload", "id", payloadId)
+	ea.log.Info("L2Engine API request received", "method", "GetPayload", "id", payloadId)
 	if ea.payloadID != payloadId {
 		ea.log.Warn("unexpected payload ID requested for block building", "expected", ea.payloadID, "got", payloadId)
 		return nil, beacon.UnknownPayload
@@ -217,7 +217,7 @@ func (ea *EngineAPI) GetPayload(ctx context.Context, payloadId eth.PayloadID) (*
 }
 
 func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.ForkchoiceState, attr *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {
-	ea.log.Trace("L2Engine API request received", "method", "ForkchoiceUpdated", "head", state.HeadBlockHash, "finalized", state.FinalizedBlockHash, "safe", state.SafeBlockHash)
+	ea.log.Info("L2Engine API request received", "method", "ForkchoiceUpdated", "head", state.HeadBlockHash, "finalized", state.FinalizedBlockHash, "safe", state.SafeBlockHash)
 	if state.HeadBlockHash == (common.Hash{}) {
 		ea.log.Warn("Forkchoice requested update to zero hash")
 		return STATUS_INVALID, nil
@@ -291,7 +291,7 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 }
 
 func (ea *EngineAPI) NewPayload(ctx context.Context, payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
-	ea.log.Trace("L2Engine API request received", "method", "ExecutePayload", "number", payload.BlockNumber, "hash", payload.BlockHash)
+	ea.log.Info("L2Engine API request received", "method", "ExecutePayload", "number", payload.BlockNumber, "hash", payload.BlockHash)
 	txs := make([][]byte, len(payload.Transactions))
 	for i, tx := range payload.Transactions {
 		txs[i] = tx
