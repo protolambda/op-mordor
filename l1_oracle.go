@@ -1,28 +1,31 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type OracleL1Chain struct {
-	oracle *PreimageOracle
-	head   eth.BlockInfo
+	oracle L1PreimageOracle
 
-	cache map[common.Hash]*PreimageBlockInfo
+	head eth.BlockInfo
+
+	headers      map[common.Hash]eth.BlockInfo
+	transactions map[common.Hash]types.Transactions
+	receipts     map[common.Hash]types.Receipts
 }
 
-func NewOracleL1Chain(oracle *PreimageOracle, head eth.BlockInfo) *OracleL1Chain {
+func NewOracleL1Chain(oracle L1PreimageOracle, head eth.BlockInfo) *OracleL1Chain {
 	return &OracleL1Chain{
-		oracle: oracle,
-		cache:  make(map[common.Hash]*PreimageBlockInfo),
-		head:   head,
+		oracle:       oracle,
+		headers:      make(map[common.Hash]eth.BlockInfo),
+		transactions: make(map[common.Hash]types.Transactions),
+		receipts:     make(map[common.Hash]types.Receipts),
+		head:         head,
 	}
 }
 
@@ -48,17 +51,12 @@ func (l *OracleL1Chain) FetchReceipts(ctx context.Context, blockHash common.Hash
 		return nil, nil, err
 	}
 
-	receiptRlp, err := l.oracle.GetPreimage(info.ReceiptHash())
+	receipts, err := l.oracle.FetchL1BlockReceipts(ctx, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
+	l.receipts[blockHash] = receipts
 
-	receipts := types.Receipts{}
-
-	// TODO: Actually need to decode this as a merkle trie of receipts
-	if err = rlp.Decode(bytes.NewReader(receiptRlp), receipts); err != nil {
-		return nil, nil, err
-	}
 	return info, receipts, nil
 }
 
@@ -71,60 +69,28 @@ func (l *OracleL1Chain) L1BlockRefByHash(ctx context.Context, hash common.Hash) 
 }
 
 func (l *OracleL1Chain) InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error) {
-	header, err := l.headerByHash(hash)
-	if err != nil {
-		return nil, err
-	}
-	return eth.HeaderBlockInfo(&header), nil
+	return l.headerByHash(ctx, hash)
 }
 
-func (l *OracleL1Chain) headerByHash(hash common.Hash) (types.Header, error) {
-	headInfoRlp, err := l.oracle.GetPreimage(hash)
+func (l *OracleL1Chain) headerByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error) {
+	header, err := l.oracle.FetchL1Header(ctx, hash)
 	if err != nil {
-		return types.Header{}, fmt.Errorf("l1 head preimage err: %w", err)
+		return nil, fmt.Errorf("l1 header err: %w", err)
 	}
-	var h types.Header
-	if err := rlp.Decode(bytes.NewReader(headInfoRlp), &h); err != nil {
-		return types.Header{}, fmt.Errorf("l1 head decode err: %w", err)
-	}
-	return h, nil
+	info := eth.HeaderBlockInfo(header)
+	l.headers[hash] = info
+	return info, nil
 }
 
 func (l *OracleL1Chain) InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error) {
-	header, err := l.headerByHash(hash)
+	header, err := l.headerByHash(ctx, hash)
 	if err != nil {
 		return nil, nil, err
 	}
-	txRlp, err := l.oracle.GetPreimage(header.TxHash)
+	txs, err := l.oracle.FetchL1BlockTransactions(ctx, hash)
 	if err != nil {
 		return nil, nil, err
 	}
-	txs := types.Transactions{}
-	// TODO: Actually need to decode this as a merkle trie of transactions
-	err = rlp.Decode(bytes.NewReader(txRlp), txs)
-	if err != nil {
-		return nil, nil, err
-	}
-	return eth.HeaderBlockInfo(&header), txs, nil
-}
-
-func (l *OracleL1Chain) StoreBlock(ctx context.Context, hash common.Hash, header *types.Header) error {
-	data, err := rlp.EncodeToBytes(header)
-	if err != nil {
-		return err
-	}
-	return l.oracle.SetPreimage(hash, data)
-}
-
-func (l *OracleL1Chain) StoreTransactions(ctx context.Context, hash common.Hash, header *types.Header, transactions types.Transactions) error {
-	err := l.StoreBlock(ctx, hash, header)
-	if err != nil {
-		return err
-	}
-	// TODO: Actually need to encode this as a merkle trie of transactions
-	bytes, err := rlp.EncodeToBytes(transactions)
-	if err != nil {
-		return err
-	}
-	return l.oracle.SetPreimage(header.TxHash, bytes)
+	l.transactions[hash] = txs
+	return header, txs, nil
 }

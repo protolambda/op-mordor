@@ -1,30 +1,31 @@
 package main
 
 import (
-	"errors"
+	"context"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
-var ErrMissingData = errors.New("missing data")
-
-type PreimageOracle struct {
-	data map[[32]byte][]byte
+type L1PreimageOracle interface {
+	// FetchL1Header fetches L1 header
+	FetchL1Header(ctx context.Context, blockHash common.Hash) (*types.Header, error)
+	// FetchL1BlockTransactions fetches L1 block transactions
+	FetchL1BlockTransactions(ctx context.Context, blockHash common.Hash) (types.Transactions, error)
+	// FetchL1BlockReceipts fetches L1 block receipts
+	FetchL1BlockReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
 }
 
-func NewPreimageOracle() *PreimageOracle {
-	return &PreimageOracle{
-		data: make(map[[32]byte][]byte),
-	}
+type L2PreimageOracle interface {
+	// FetchL2MPTNode fetches L2 state MPT node
+	FetchL2MPTNode(ctx context.Context, nodeHash common.Hash) ([]byte, error)
+	// FetchL2Block fetches L2 block with transactions
+	FetchL2Block(ctx context.Context, blockHash common.Hash) (*types.Block, error)
 }
 
-func (p *PreimageOracle) GetPreimage(key [32]byte) (v []byte, err error) {
-	bytes, ok := p.data[key]
-	if !ok {
-		return nil, ErrMissingData
-	}
-	return bytes, nil
+type PreimageOracle interface {
+	L1PreimageOracle
+	L2PreimageOracle
 }
 
-func (p *PreimageOracle) SetPreimage(key [32]byte, value []byte) error {
-	p.data[key] = value
-	return nil
-}
+// TODO JSON-RPC based implementation of oracle that persists fetched results for usage in the other mode
+// TODO disk-reader-based implementation of oracle (to be replaced with memory-mapped version in final fault proof program)

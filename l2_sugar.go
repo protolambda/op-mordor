@@ -10,13 +10,13 @@ import (
 type L2Sugar struct {
 	head eth.BlockInfo
 
-	*L2BlockFetcher
+	oracle L2PreimageOracle
 }
 
-func NewL2Sugar(head eth.BlockInfo, fetcher *L2BlockFetcher) *L2Sugar {
+func NewL2Sugar(head eth.BlockInfo, oracle L2PreimageOracle) *L2Sugar {
 	return &L2Sugar{
-		head:           head,
-		L2BlockFetcher: fetcher,
+		head:   head,
+		oracle: oracle,
 	}
 }
 

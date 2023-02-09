@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -17,39 +16,34 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var _ derive.Engine = (*L2Engine)(nil)
-var _ derive.L1Fetcher = (*LoadingL1Chain)(nil)
+var _ derive.L1Fetcher = (*OracleL1Chain)(nil)
 
-func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash) (outputRoot eth.Bytes32, err error) {
-
-	oracle := NewPreimageOracle()
-
-	getHeader := func(blockHash common.Hash) (eth.BlockInfo, error) {
-		headInfoRrlp, err := oracle.GetPreimage(blockHash)
-		if err != nil {
-			return nil, fmt.Errorf("l1 head preimage err: %w", err)
-		}
-		var h types.Header
-		if err := rlp.Decode(bytes.NewReader(headInfoRrlp), &h); err != nil {
-			return nil, fmt.Errorf("l1 head decode err: %w", err)
-		}
-		return eth.HeaderBlockInfo(&h), nil
+func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outputRoot eth.Bytes32, err error) {
+	var l1Oracle L1PreimageOracle
+	var l2Oracle L2PreimageOracle
+	// TODO instantiate one of the two oracle modes
+	if rpcMode {
+		l1Oracle = NewLoadingL1Chain(nil) // TODO rpc client
+		l2Oracle = nil                    // TODO
+	} else {
+		// TODO disk-mode (or future memory-mapped oracle)
 	}
 
-	l1Head, err := getHeader(l1Hash)
-	// TODO
-	l2Head, err := getHeader(l2Hash)
-	// TODO
-	l1Fetcher := NewOracleL1Chain(oracle, l1Head)
-	l2BlockFetcher := NewL2BlockFetcher(oracle)
+	l1Header, err := l1Oracle.FetchL1Header(context.Background(), l1Hash)
+	l2HeadBlock, err := l2Oracle.FetchL2Block(context.Background(), l2Hash)
+
+	l1Head := eth.HeaderBlockInfo(l1Header)
+	l2Head := eth.HeaderBlockInfo(l2HeadBlock.Header())
+
+	l1Fetcher := NewOracleL1Chain(l1Oracle, l1Head)
 	preDB := NewPreimageBackedDB(nil) // TODO
 	l2Genesis := &core.Genesis{}      // TODO
-	l2Engine := NewL2Engine(logger, l2Genesis, l2BlockFetcher, preDB, l2Head)
+	l2Chain := NewL2Sugar(l2Head, l2Oracle)
+	l2Engine := NewL2Engine(logger, l2Genesis, l2Chain, preDB)
 
 	cfg := &chaincfg.Goerli
 	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Fetcher, l2Engine, metrics.NoopMetrics)
@@ -90,7 +84,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	out, err := StateFn(logger, l1Hash, l2Hash)
+	out, err := StateFn(logger, l1Hash, l2Hash, false) // TODO switch between modes
 	if err != nil {
 		logger.Error("state fn crit err", "err", err)
 		os.Exit(1)
