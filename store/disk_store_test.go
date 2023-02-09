@@ -1,8 +1,8 @@
-package main_test
+package store_test
 
 import (
 	"math/rand"
-	"op-mordor"
+	"op-mordor/store"
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-node/testutils"
@@ -13,7 +13,7 @@ func TestDiskStore(t *testing.T) {
 	rng := rand.New(rand.NewSource(420))
 
 	storePath := t.TempDir()
-	s, err := main.NewDiskStore(storePath)
+	s, err := store.NewDiskStore(storePath)
 	require.NoError(t, err)
 
 	rndHash := testutils.RandomHash(rng)
@@ -53,11 +53,11 @@ func TestBlockStoreSource(t *testing.T) {
 	rng := rand.New(rand.NewSource(420))
 
 	storePath := t.TempDir()
-	s, err := main.NewDiskStore(storePath)
+	s, err := store.NewDiskStore(storePath)
 	require.NoError(t, err)
 
-	//bstore := main.BlockStore{s}
-	bsource := main.BlockSource{s}
+	//bstore := store.BlockStore{s}
+	bsource := store.BlockSource{s}
 
 	rndHash := testutils.RandomHash(rng)
 
@@ -69,6 +69,6 @@ func TestBlockStoreSource(t *testing.T) {
 }
 
 func requireNoDataError(t *testing.T, err error) {
-	var noDataErr main.NoDataError
+	var noDataErr store.NoDataError
 	require.ErrorAs(t, err, &noDataErr)
 }

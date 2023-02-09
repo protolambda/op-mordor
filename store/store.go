@@ -1,4 +1,4 @@
-package main
+package store
 
 import (
 	"github.com/ethereum/go-ethereum/common"

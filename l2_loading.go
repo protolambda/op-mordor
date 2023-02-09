@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"op-mordor/store"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -16,15 +16,15 @@ type LoadingL2Chain struct {
 	logger    log.Logger
 	rpcClient *rpc.Client
 	client    *ethclient.Client
-	store     BlockStore
+	store     store.BlockStore
 }
 
-func NewLoadingL2Chain(logger log.Logger, l2RpcClient *rpc.Client, store BlockStore) *LoadingL2Chain {
+func NewLoadingL2Chain(logger log.Logger, l2RpcClient *rpc.Client, sstore store.Store) *LoadingL2Chain {
 	return &LoadingL2Chain{
 		logger:    logger,
 		rpcClient: l2RpcClient,
 		client:    ethclient.NewClient(l2RpcClient),
-		store:     store,
+		store:     store.BlockStore{Store: sstore},
 	}
 }
 
@@ -48,37 +48,4 @@ func (l *LoadingL2Chain) FetchL2Block(ctx context.Context, blockHash common.Hash
 	err = l.store.StoreBlock(block)
 	l.logger.Info("Fetch L2 block", "num", block.NumberU64())
 	return block, err
-}
-
-// BlockStore augments a Store with a method StoreBlock to store blocks.
-// It reuses header and transactions storing of the Store.
-type BlockStore struct {
-	Store
-}
-
-func (s BlockStore) StoreBlock(block *types.Block) error {
-	if err := s.StoreHeader(block.Hash(), block.Header()); err != nil {
-		return err
-	}
-	return s.StoreTransactions(block.TxHash(), block.Transactions())
-}
-
-// BlockStore augments a Store with a method StoreBlock to store blocks.
-// It reuses header and transactions storing of the Store.
-type BlockSource struct {
-	Source
-}
-
-func (s BlockSource) ReadBlock(hash common.Hash) (*types.Block, error) {
-	h, err := s.ReadHeader(hash)
-	if err != nil {
-		return nil, fmt.Errorf("reading header: %w", err)
-	}
-
-	txs, err := s.ReadTransactions(h.TxHash)
-	if err != nil {
-		return nil, fmt.Errorf("reading txs: %w", err)
-	}
-
-	return types.NewBlockWithHeader(h).WithBody(txs, nil), nil
 }

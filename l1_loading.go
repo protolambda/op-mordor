@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"op-mordor/store"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -13,7 +14,7 @@ import (
 type LoadingL1Chain struct {
 	logger log.Logger
 	client *ethclient.Client
-	store  Store
+	store  store.Store
 }
 
 func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Hash) (*types.Header, error) {
@@ -66,7 +67,7 @@ func (l *LoadingL1Chain) FetchL1BlockReceipts(ctx context.Context, blockHash com
 
 var _ L1PreimageOracle = (*LoadingL1Chain)(nil)
 
-func NewLoadingL1Chain(logger log.Logger, client *ethclient.Client, store Store) L1PreimageOracle {
+func NewLoadingL1Chain(logger log.Logger, client *ethclient.Client, store store.Store) L1PreimageOracle {
 	return &LoadingL1Chain{
 		logger: logger,
 		client: client,

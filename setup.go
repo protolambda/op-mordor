@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"op-mordor/store"
 	"os"
 	"time"
 
@@ -40,12 +41,12 @@ func setupRpcOracles(logger log.Logger) (L1PreimageOracle, L2PreimageOracle, err
 	if err != nil {
 		return nil, nil, fmt.Errorf("dialing l2 rpc: %w", err)
 	}
-	store, err := NewDiskStore(storePath)
+	dstore, err := store.NewDiskStore(storePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("creating disk store: %w", err)
 	}
 
-	l1Oracle := NewLoadingL1Chain(logger, l1Client, store)
-	l2Oracle := NewLoadingL2Chain(logger, rpcClient, BlockStore{store})
+	l1Oracle := NewLoadingL1Chain(logger, l1Client, dstore)
+	l2Oracle := NewLoadingL2Chain(logger, rpcClient, dstore)
 	return l1Oracle, l2Oracle, nil
 }
