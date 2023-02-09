@@ -16,6 +16,8 @@ type LoadingL1Chain struct {
 
 type Store interface {
 	StoreHeader(hash common.Hash, header *types.Header) error
+
+	StoreTransactions(txRoot common.Hash, transactions types.Transactions) error
 }
 
 func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Hash) (*types.Header, error) {
@@ -35,8 +37,12 @@ func (l *LoadingL1Chain) FetchL1BlockTransactions(ctx context.Context, blockHash
 	if err != nil {
 		return nil, err
 	}
-	// TODO: persist transactions to disk
-	return bl.Transactions(), nil
+	txs := bl.Transactions()
+	err = l.store.StoreTransactions(bl.TxHash(), txs)
+	if err != nil {
+		return nil, fmt.Errorf("storing transactions: %w", err)
+	}
+	return txs, nil
 }
 
 func (l *LoadingL1Chain) FetchL1BlockReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
