@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/beacon"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -71,7 +70,7 @@ type EngineAPI struct {
 	payloadID beacon.PayloadID // ID of payload that is currently being built
 }
 
-func NewEngineAPI(log log.Logger, cfg *core.Genesis, sugar *L2Sugar) *EngineAPI {
+func NewEngineAPI(log log.Logger, cfg *core.Genesis, sugar *L2Sugar, preDB *PreimageBackedDB) *EngineAPI {
 	cons := beaconConsensus.New(nil)
 
 	return &EngineAPI{
@@ -84,7 +83,7 @@ func NewEngineAPI(log log.Logger, cfg *core.Genesis, sugar *L2Sugar) *EngineAPI 
 		vmCfg:      vm.Config{},
 		safe:       sugar.head.Hash(),
 		finalized:  eth.BlockID{Hash: sugar.head.Hash(), Number: sugar.head.NumberU64()},
-		l2Database: nil, // TODO
+		l2Database: preDB,
 		l2Cfg:      cfg,
 		// building state starts nil
 	}
@@ -235,7 +234,7 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 			PayloadID:     id,
 		}
 	}
-	if rawdb.ReadCanonicalHash(ea.l2Database, block.NumberU64()) != state.HeadBlockHash {
+	if ea.sugar.getBlockHashByNumber(block.NumberU64()) != state.HeadBlockHash {
 		return nil, fmt.Errorf("cannot reorg! from %s to %s", block.Hash(), state.HeadBlockHash)
 	} else if ea.sugar.CurrentBlock().Hash() == state.HeadBlockHash {
 		// If the specified head matches with our local head, do nothing and keep
@@ -253,7 +252,7 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 		if err != nil {
 			ea.log.Warn("Final block not available in database", "hash", state.FinalizedBlockHash)
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("final block not available in database"))
-		} else if rawdb.ReadCanonicalHash(ea.l2Database, finalBlock.Number) != state.FinalizedBlockHash {
+		} else if ea.sugar.getBlockHashByNumber(finalBlock.Number) != state.FinalizedBlockHash {
 			ea.log.Warn("Final block not in canonical chain", "number", block.NumberU64(), "hash", state.HeadBlockHash)
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("final block not in canonical chain"))
 		}
@@ -267,7 +266,7 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 			ea.log.Warn("Safe block not available in database")
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("safe block not available in database"))
 		}
-		if rawdb.ReadCanonicalHash(ea.l2Database, safeBlock.NumberU64()) != state.SafeBlockHash {
+		if ea.sugar.getBlockHashByNumber(safeBlock.NumberU64()) != state.SafeBlockHash {
 			ea.log.Warn("Safe block not in canonical chain")
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("safe block not in canonical chain"))
 		}

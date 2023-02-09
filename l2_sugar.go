@@ -39,6 +39,11 @@ func (l *L2Sugar) getHeaderByHash(hash common.Hash) *types.Header {
 	panic("TODO")
 }
 
+func (l *L2Sugar) getBlockHashByNumber(u uint64) common.Hash {
+	// TODO
+	panic("TODO")
+}
+
 // used by geth chain context
 func (l *L2Sugar) getHeader(hash common.Hash, u uint64) *types.Header {
 	// TODO
