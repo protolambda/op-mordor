@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -316,14 +315,7 @@ func (ea *EngineAPI) NewPayload(ctx context.Context, payload *eth.ExecutionPaylo
 		log.Debug("Invalid NewPayload params", "params", payload, "error", err)
 		return &eth.PayloadStatusV1{Status: eth.ExecutionInvalidBlockHash}, nil
 	}
-	// If we already have the block locally, ignore the entire execution and just
-	// return a fake success.
-	if block := ea.sugar.getBlockInfoByHash(payload.BlockHash); block != nil {
-		ea.log.Warn("Ignoring already known beacon payload", "number", payload.BlockNumber, "hash", payload.BlockHash, "age", common.PrettyAge(time.Unix(int64(block.Time()), 0)))
-		hash := block.Hash()
-		return &eth.PayloadStatusV1{Status: eth.ExecutionValid, LatestValidHash: &hash}, nil
-	}
-
+	// TODO: skipping known-block check
 	// TODO: skipping invalid ancestor check (i.e. not remembering previously failed blocks)
 
 	parent := ea.sugar.getBlockInfoByHash(block.ParentHash())
@@ -331,7 +323,11 @@ func (ea *EngineAPI) NewPayload(ctx context.Context, payload *eth.ExecutionPaylo
 		// TODO: hack, saying we accepted if we don't know the parent block. Might want to return critical error if we can't actually sync.
 		return &eth.PayloadStatusV1{Status: eth.ExecutionAccepted, LatestValidHash: nil}, nil
 	}
+	ea.sugar.blocks[block.Hash()] = block // TODO setter
 	ea.sugar.SetHead(eth.HeaderBlockInfo(block.Header()))
+	// TODO: Don't log the json...
+	json, _ := block.Header().MarshalJSON()
+	ea.log.Info("Produced block", "block", string(json))
 	hash := block.Hash()
 	return &eth.PayloadStatusV1{Status: eth.ExecutionValid, LatestValidHash: &hash}, nil
 }
