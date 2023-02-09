@@ -26,10 +26,13 @@ func NewLoadingL2Chain(l2RpcClient *rpc.Client, store BlockStore) *LoadingL2Chai
 
 // FetchL2MPTNode fetches L2 state MPT node
 func (l *LoadingL2Chain) FetchL2MPTNode(ctx context.Context, nodeHash common.Hash) ([]byte, error) {
-	var resp hexutil.Bytes
-	err := l.rpcClient.CallContext(ctx, &resp, "debug_dbGet", nodeHash.Hex())
-	// TODO: persist node pre-image to disk
-	return resp, err
+	var node hexutil.Bytes
+	err := l.rpcClient.CallContext(ctx, &node, "debug_dbGet", nodeHash.Hex())
+	if err != nil {
+		return nil, err
+	}
+	err = l.store.StoreNode(nodeHash, node)
+	return node, err
 }
 
 // FetchL2Block fetches L2 block with transactions

@@ -11,4 +11,6 @@ type Store interface {
 	StoreTransactions(txRoot common.Hash, transactions types.Transactions) error
 
 	StoreReceipts(receipts types.Receipts) error
+
+	StoreNode(nodeHash common.Hash, node []byte) error
 }

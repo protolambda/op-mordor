@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -54,6 +55,13 @@ func (s DiskStore) StoreReceipts(receipts types.Receipts) error {
 		return fmt.Errorf("store receipts: %w", err)
 	}
 	return nil
+}
+
+func (s DiskStore) StoreNode(nodeHash common.Hash, node []byte) error {
+	return s.store(nodeHash, func(w io.Writer) error {
+		_, err := io.Copy(w, bytes.NewReader(node))
+		return err
+	})
 }
 
 type dataSource func(w io.Writer) error
