@@ -129,7 +129,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	out, err := StateFn(logger, l1Hash, l2Hash, false) // TODO switch between modes
+	out, err := StateFn(logger, l1Hash, l2Hash, true) // TODO switch between modes
 	if err != nil {
 		logger.Error("state fn crit err", "err", err)
 		os.Exit(1)

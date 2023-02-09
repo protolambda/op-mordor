@@ -31,6 +31,8 @@ func NewL2Sugar(
 		cfg:    cfg,
 		ctx:    context.TODO(),
 		head:   head,
+
+		blocks: make(map[common.Hash]*types.Block),
 	}
 }
 
@@ -100,8 +102,7 @@ func (l *L2Sugar) PayloadByNumber(ctx context.Context, u uint64) (*eth.Execution
 }
 
 func (l *L2Sugar) L2BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L2BlockRef, error) {
-	//TODO implement me
-	panic("implement me")
+	return l.L2BlockRefByHash(ctx, l.head.Hash())
 }
 
 func (l *L2Sugar) L2BlockRefByHash(ctx context.Context, l2Hash common.Hash) (eth.L2BlockRef, error) {

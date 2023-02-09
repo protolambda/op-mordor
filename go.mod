@@ -3,6 +3,7 @@ module op-mordor
 go 1.19
 
 require (
+	github.com/ethereum-optimism/optimism/op-bindings v0.10.13
 	github.com/ethereum-optimism/optimism/op-node v0.10.13
 	github.com/ethereum/go-ethereum v1.10.26
 )
@@ -16,7 +17,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
-	github.com/ethereum-optimism/optimism/op-bindings v0.10.13 // indirect
 	github.com/ethereum-optimism/optimism/op-service v0.10.13 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
