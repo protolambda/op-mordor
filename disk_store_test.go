@@ -10,43 +10,65 @@ import (
 )
 
 func TestDiskStore(t *testing.T) {
-	require := require.New(t)
 	rng := rand.New(rand.NewSource(420))
 
 	storePath := t.TempDir()
 	s, err := main.NewDiskStore(storePath)
-	require.NoError(err)
+	require.NoError(t, err)
 
 	rndHash := testutils.RandomHash(rng)
-	var noDataErr main.NoDataError
 
 	t.Run("ReadHeader/not-exist", func(t *testing.T) {
 		h, err := s.ReadHeader(rndHash)
-		require.ErrorAs(err, &noDataErr)
-		require.Nil(h)
+		requireNoDataError(t, err)
+		require.Nil(t, h)
 	})
 
 	t.Run("ReadNode/not-exist", func(t *testing.T) {
 		node, err := s.ReadNode(rndHash)
-		require.ErrorAs(err, &noDataErr)
-		require.Nil(node)
+		requireNoDataError(t, err)
+		require.Nil(t, node)
 	})
 
 	t.Run("Store+ReadHeader", func(t *testing.T) {
 		rndHeader := testutils.RandomHeader(rng)
-		require.NoError(s.StoreHeader(rndHash, rndHeader))
+		require.NoError(t, s.StoreHeader(rndHash, rndHeader))
 
 		header, err := s.ReadHeader(rndHash)
-		require.NoError(err)
-		require.Equal(header, rndHeader)
+		require.NoError(t, err)
+		require.Equal(t, header, rndHeader)
 	})
 
 	t.Run("Store+ReadNode", func(t *testing.T) {
 		rndNode := testutils.RandomData(rng, 420)
-		require.NoError(s.StoreNode(rndHash, rndNode))
+		require.NoError(t, s.StoreNode(rndHash, rndNode))
 
 		node, err := s.ReadNode(rndHash)
-		require.NoError(err)
-		require.Equal(node, rndNode)
+		require.NoError(t, err)
+		require.Equal(t, node, rndNode)
 	})
+}
+
+func TestBlockStoreSource(t *testing.T) {
+	rng := rand.New(rand.NewSource(420))
+
+	storePath := t.TempDir()
+	s, err := main.NewDiskStore(storePath)
+	require.NoError(t, err)
+
+	//bstore := main.BlockStore{s}
+	bsource := main.BlockSource{s}
+
+	rndHash := testutils.RandomHash(rng)
+
+	t.Run("BlockSource/not-exist", func(t *testing.T) {
+		b, err := bsource.ReadBlock(rndHash)
+		requireNoDataError(t, err)
+		require.Nil(t, b)
+	})
+}
+
+func requireNoDataError(t *testing.T, err error) {
+	var noDataErr main.NoDataError
+	require.ErrorAs(t, err, &noDataErr)
 }

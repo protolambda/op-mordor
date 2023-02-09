@@ -14,3 +14,13 @@ type Store interface {
 
 	StoreNode(nodeHash common.Hash, node []byte) error
 }
+
+type Source interface {
+	ReadHeader(hash common.Hash) (*types.Header, error)
+
+	ReadTransactions(txRoot common.Hash) (types.Transactions, error)
+
+	ReadReceipts(hash common.Hash) (types.Receipts, error)
+
+	ReadNode(nodeHash common.Hash) (node []byte, err error)
+}
