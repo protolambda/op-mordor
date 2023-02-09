@@ -9,12 +9,10 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
-	"github.com/ethereum-optimism/optimism/op-node/client"
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-node/sources"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -37,15 +35,7 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 			return eth.Bytes32{}, fmt.Errorf("l1 rpc unavailable: %w", err)
 		}
 		ethClient := ethclient.NewClient(rpcClient)
-
-		opRpc := client.NewBaseRPCClient(rpcClient)
-		clientConfig := sources.L1ClientDefaultConfig(cfg, false, sources.RPCKindBasic)
-		receiptsFetcher, err := sources.NewEthClient(opRpc, logger, nil, &clientConfig.EthClientConfig)
-		if err != nil {
-			return eth.Bytes32{}, fmt.Errorf("l1 eth client init: %w", err)
-		}
-
-		l1Oracle = NewLoadingL1Chain(ethClient, receiptsFetcher)
+		l1Oracle = NewLoadingL1Chain(ethClient)
 		l2Oracle = nil // TODO
 	} else {
 		// TODO disk-mode (or future memory-mapped oracle)
