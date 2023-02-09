@@ -25,7 +25,6 @@ func NewL2Sugar(
 	head eth.BlockInfo,
 	oracle L2PreimageOracle,
 	cfg *rollup.Config,
-	genesis *rollup.Genesis,
 ) *L2Sugar {
 	return &L2Sugar{
 		oracle: oracle,
@@ -82,9 +81,9 @@ func (l *L2Sugar) getHeader(hash common.Hash, u uint64) *types.Header {
 	panic("TODO")
 }
 
-func (l *L2Sugar) PayloadByHash(ctx context.Context, hash common.Hash) (*eth.ExecutionPayload, error) {
-	//TODO implement me
-	panic("implement me")
+func (l *L2Sugar) PayloadByHash(_ context.Context, hash common.Hash) (*eth.ExecutionPayload, error) {
+	block := l.getBlockByHash(hash)
+	return eth.BlockAsPayload(block)
 }
 
 func (l *L2Sugar) PayloadByNumber(ctx context.Context, u uint64) (*eth.ExecutionPayload, error) {
@@ -102,7 +101,7 @@ func (l *L2Sugar) L2BlockRefByHash(ctx context.Context, l2Hash common.Hash) (eth
 	if err != nil {
 		return eth.L2BlockRef{}, err
 	}
-	return derive.PayloadToBlockRef(payload, l.genesis)
+	return derive.PayloadToBlockRef(payload, &l.cfg.Genesis)
 }
 
 func (l *L2Sugar) SystemConfigByL2Hash(ctx context.Context, hash common.Hash) (eth.SystemConfig, error) {

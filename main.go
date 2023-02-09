@@ -54,7 +54,7 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 	l1Fetcher := NewOracleL1Chain(l1Oracle, l1Head)
 	preDB := NewPreimageBackedDB(nil) // TODO
 	l2Genesis := &core.Genesis{}      // TODO
-	l2Chain := NewL2Sugar(l2Head, l2Oracle)
+	l2Chain := NewL2Sugar(l2Head, l2Oracle, cfg)
 	l2Engine := NewL2Engine(logger, l2Genesis, l2Chain, preDB)
 
 	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Fetcher, l2Engine, metrics.NoopMetrics)
