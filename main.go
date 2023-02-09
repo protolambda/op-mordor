@@ -35,8 +35,12 @@ func StateFn(logger log.Logger, l1Hash, l2Hash common.Hash, rpcMode bool) (outpu
 			return eth.Bytes32{}, fmt.Errorf("l1 rpc unavailable: %w", err)
 		}
 		ethClient := ethclient.NewClient(rpcClient)
-		l1Oracle = NewLoadingL1Chain(ethClient)
-		l2Oracle = nil // TODO
+		store, err := NewDiskStore("/tmp/mordor")
+		if err != nil {
+			return eth.Bytes32{}, fmt.Errorf("create disk store: %w", err)
+		}
+		l1Oracle = NewLoadingL1Chain(ethClient, store) // TODO: Support setting dir
+		l2Oracle = nil                                 // TODO
 	} else {
 		// TODO disk-mode (or future memory-mapped oracle)
 	}

@@ -11,6 +11,11 @@ import (
 
 type LoadingL1Chain struct {
 	client *ethclient.Client
+	store  Store
+}
+
+type Store interface {
+	StoreHeader(hash common.Hash, header *types.Header) error
 }
 
 func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Hash) (*types.Header, error) {
@@ -18,7 +23,10 @@ func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Has
 	if err != nil {
 		return nil, err
 	}
-	// TODO: persist header pre-image to disk
+	err = l.store.StoreHeader(blockHash, h)
+	if err != nil {
+		return nil, fmt.Errorf("storing header: %w", err)
+	}
 	return h, nil
 }
 
@@ -50,8 +58,9 @@ func (l *LoadingL1Chain) FetchL1BlockReceipts(ctx context.Context, blockHash com
 
 var _ L1PreimageOracle = (*LoadingL1Chain)(nil)
 
-func NewLoadingL1Chain(client *ethclient.Client) L1PreimageOracle {
+func NewLoadingL1Chain(client *ethclient.Client, store Store) L1PreimageOracle {
 	return &LoadingL1Chain{
 		client: client,
+		store:  store,
 	}
 }
