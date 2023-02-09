@@ -2,41 +2,59 @@ package main
 
 import (
 	"context"
+	"log"
+
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type L2Sugar struct {
-	head eth.BlockInfo
-
 	oracle L2PreimageOracle
+	ctx    context.Context
+
+	head   eth.BlockInfo
+	blocks map[common.Hash]*types.Block
 }
 
 func NewL2Sugar(head eth.BlockInfo, oracle L2PreimageOracle) *L2Sugar {
 	return &L2Sugar{
+		ctx:    context.TODO(),
 		head:   head,
 		oracle: oracle,
 	}
+}
+
+func (l *L2Sugar) handleErr(err error) {
+	log.Fatalf("L2Sugar fatal error: %v", err)
 }
 
 func (l *L2Sugar) SetHead(head eth.BlockInfo) {
 	l.head = head
 }
 
-func (l *L2Sugar) CurrentBlock() *types.Block {
-	// TODO
-	return nil
+func (l *L2Sugar) CurrentBlock() eth.BlockInfo {
+	return l.head
 }
 
-func (l *L2Sugar) getBlockByHash(hash common.Hash) *types.Block {
-	// TODO
-	panic("TODO")
+func (l *L2Sugar) getBlockInfoByHash(hash common.Hash) eth.BlockInfo {
+	return eth.HeaderBlockInfo(l.getHeaderByHash(hash))
 }
 
 func (l *L2Sugar) getHeaderByHash(hash common.Hash) *types.Header {
-	// TODO
-	panic("TODO")
+	block, ok := l.blocks[hash]
+	if ok {
+		return block.Header()
+	}
+
+	block, err := l.oracle.FetchL2Block(l.ctx, hash)
+	if err != nil {
+		l.handleErr(err)
+		return nil
+	}
+	l.blocks[hash] = block
+
+	return block.Header()
 }
 
 func (l *L2Sugar) getBlockHashByNumber(u uint64) common.Hash {

@@ -6,6 +6,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -19,8 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/trie"
-	"math/big"
-	"time"
 )
 
 type HeaderInterface interface {
@@ -223,7 +224,7 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 	// Check whether we have the block yet in our database or not. If not, we'll
 	// need to either trigger a sync, or to reject this forkchoice update for a
 	// reason.
-	block := ea.sugar.getBlockByHash(state.HeadBlockHash)
+	block := ea.sugar.getBlockInfoByHash(state.HeadBlockHash)
 	if block == nil {
 		// TODO: syncing not supported yet
 		return STATUS_SYNCING, nil
@@ -261,7 +262,7 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 	}
 	// Check if the safe block hash is in our canonical tree, if not somethings wrong
 	if state.SafeBlockHash != (common.Hash{}) {
-		safeBlock := ea.sugar.getBlockByHash(state.SafeBlockHash)
+		safeBlock := ea.sugar.getBlockInfoByHash(state.SafeBlockHash)
 		if safeBlock == nil {
 			ea.log.Warn("Safe block not available in database")
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("safe block not available in database"))
@@ -316,7 +317,7 @@ func (ea *EngineAPI) NewPayload(ctx context.Context, payload *eth.ExecutionPaylo
 	}
 	// If we already have the block locally, ignore the entire execution and just
 	// return a fake success.
-	if block := ea.sugar.getBlockByHash(payload.BlockHash); block != nil {
+	if block := ea.sugar.getBlockInfoByHash(payload.BlockHash); block != nil {
 		ea.log.Warn("Ignoring already known beacon payload", "number", payload.BlockNumber, "hash", payload.BlockHash, "age", common.PrettyAge(time.Unix(int64(block.Time()), 0)))
 		hash := block.Hash()
 		return &eth.PayloadStatusV1{Status: eth.ExecutionValid, LatestValidHash: &hash}, nil
@@ -324,7 +325,7 @@ func (ea *EngineAPI) NewPayload(ctx context.Context, payload *eth.ExecutionPaylo
 
 	// TODO: skipping invalid ancestor check (i.e. not remembering previously failed blocks)
 
-	parent := ea.sugar.getBlockByHash(block.ParentHash())
+	parent := ea.sugar.getBlockInfoByHash(block.ParentHash())
 	if parent == nil {
 		// TODO: hack, saying we accepted if we don't know the parent block. Might want to return critical error if we can't actually sync.
 		return &eth.PayloadStatusV1{Status: eth.ExecutionAccepted, LatestValidHash: nil}, nil
