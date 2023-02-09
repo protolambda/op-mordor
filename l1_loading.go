@@ -3,13 +3,15 @@ package main
 import (
 	"context"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 type LoadingL1Chain struct {
-	client *ethclient.Client
+	client          *ethclient.Client
+	receiptsFetcher derive.L1ReceiptsFetcher
 }
 
 func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Hash) (*types.Header, error) {
@@ -31,14 +33,19 @@ func (l *LoadingL1Chain) FetchL1BlockTransactions(ctx context.Context, blockHash
 }
 
 func (l *LoadingL1Chain) FetchL1BlockReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
-	// TODO
-	return nil, nil
+	_, rcpts, err := l.receiptsFetcher.FetchReceipts(ctx, blockHash)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: persist receipts to disk
+	return rcpts, nil
 }
 
 var _ L1PreimageOracle = (*LoadingL1Chain)(nil)
 
-func NewLoadingL1Chain(client *ethclient.Client) L1PreimageOracle {
+func NewLoadingL1Chain(client *ethclient.Client, receiptsFetcher derive.L1ReceiptsFetcher) L1PreimageOracle {
 	return &LoadingL1Chain{
-		client: client,
+		client:          client,
+		receiptsFetcher: receiptsFetcher,
 	}
 }
