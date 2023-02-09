@@ -44,6 +44,18 @@ func (s DiskStore) StoreTransactions(txRoot common.Hash, txs types.Transactions)
 	return nil
 }
 
+func (s DiskStore) StoreReceipts(receipts types.Receipts) error {
+	pkw := keyValueWriter{s: s}
+	hasher := &noResetTrie{*trie.NewStackTrie(pkw)}
+
+	types.DeriveSha(receipts, hasher)
+	_, err := hasher.Commit()
+	if err != nil {
+		return fmt.Errorf("store receipts: %w", err)
+	}
+	return nil
+}
+
 type dataSource func(w io.Writer) error
 
 func (s DiskStore) store(hash common.Hash, source dataSource) error {

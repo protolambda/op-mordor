@@ -14,12 +14,6 @@ type LoadingL1Chain struct {
 	store  Store
 }
 
-type Store interface {
-	StoreHeader(hash common.Hash, header *types.Header) error
-
-	StoreTransactions(txRoot common.Hash, transactions types.Transactions) error
-}
-
 func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Hash) (*types.Header, error) {
 	h, err := l.client.HeaderByHash(ctx, blockHash)
 	if err != nil {
@@ -58,7 +52,10 @@ func (l *LoadingL1Chain) FetchL1BlockReceipts(ctx context.Context, blockHash com
 		}
 		receipts = append(receipts, receipt)
 	}
-	// TODO: persist receipts to disk
+	err = l.store.StoreReceipts(receipts)
+	if err != nil {
+		return nil, fmt.Errorf("storing receipts: %w", err)
+	}
 	return receipts, nil
 }
 
