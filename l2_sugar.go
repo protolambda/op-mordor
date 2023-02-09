@@ -46,14 +46,6 @@ func (l *L2Sugar) CurrentBlock() eth.BlockInfo {
 	return l.head
 }
 
-func (l *L2Sugar) getBlockInfoByHash(hash common.Hash) eth.BlockInfo {
-	return eth.HeaderBlockInfo(l.getHeaderByHash(hash))
-}
-
-func (l *L2Sugar) getHeaderByHash(hash common.Hash) *types.Header {
-	return l.getBlockByHash(hash).Header()
-}
-
 func (l *L2Sugar) getBlockByHash(hash common.Hash) *types.Block {
 	block, ok := l.blocks[hash]
 	if ok {
@@ -70,15 +62,32 @@ func (l *L2Sugar) getBlockByHash(hash common.Hash) *types.Block {
 	return block
 }
 
+// getBlockByNumber iterates back from the head until the block with number u is
+// found. It uses getBlockByHash so all blocks retrieved this way are locally
+// cached.
+func (l *L2Sugar) getBlockByNumber(u uint64) *types.Block {
+	block := l.getBlockByHash(l.head.Hash())
+	for block.NumberU64() > u {
+		block = l.getBlockByHash(block.ParentHash())
+	}
+	return block
+}
+
+func (l *L2Sugar) getBlockInfoByHash(hash common.Hash) eth.BlockInfo {
+	return eth.HeaderBlockInfo(l.getHeaderByHash(hash))
+}
+
+func (l *L2Sugar) getHeaderByHash(hash common.Hash) *types.Header {
+	return l.getBlockByHash(hash).Header()
+}
+
 func (l *L2Sugar) getBlockHashByNumber(u uint64) common.Hash {
-	// TODO
-	panic("TODO")
+	return l.getBlockByNumber(u).Hash()
 }
 
 // used by geth chain context
-func (l *L2Sugar) getHeader(hash common.Hash, u uint64) *types.Header {
-	// TODO
-	panic("TODO")
+func (l *L2Sugar) getHeader(hash common.Hash, _ uint64) *types.Header {
+	return l.getHeaderByHash(hash)
 }
 
 func (l *L2Sugar) PayloadByHash(_ context.Context, hash common.Hash) (*eth.ExecutionPayload, error) {
@@ -87,8 +96,7 @@ func (l *L2Sugar) PayloadByHash(_ context.Context, hash common.Hash) (*eth.Execu
 }
 
 func (l *L2Sugar) PayloadByNumber(ctx context.Context, u uint64) (*eth.ExecutionPayload, error) {
-	//TODO implement me
-	panic("implement me")
+	return l.PayloadByHash(ctx, l.getBlockHashByNumber(u))
 }
 
 func (l *L2Sugar) L2BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L2BlockRef, error) {
