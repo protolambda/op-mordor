@@ -1,16 +1,20 @@
-package main
+package l1
 
 import (
 	"context"
 	"fmt"
+	"op-mordor/oracle"
 
 	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-type OracleL1Chain struct {
-	oracle L1PreimageOracle
+// OracleBackedL1Chain is a wrapper around a oracle.L1Oracle that provides "sugar" to make working with the L1 chain
+// data in the oracle easier.
+type OracleBackedL1Chain struct {
+	oracle oracle.L1Oracle
 
 	head eth.BlockInfo
 
@@ -20,22 +24,29 @@ type OracleL1Chain struct {
 	receipts     map[common.Hash]types.Receipts
 }
 
-func NewOracleL1Chain(oracle L1PreimageOracle, head eth.BlockInfo) *OracleL1Chain {
-	return &OracleL1Chain{
+var _ derive.L1Fetcher = (*OracleBackedL1Chain)(nil)
+
+func NewOracleBackedL1Chain(ctx context.Context, oracle oracle.L1Oracle, headHash common.Hash) (*OracleBackedL1Chain, error) {
+	l1Header, err := oracle.FetchL1Header(ctx, headHash)
+	if err != nil {
+		return nil, err
+	}
+	head := eth.HeaderBlockInfo(l1Header)
+	return &OracleBackedL1Chain{
 		oracle:       oracle,
 		headers:      make(map[common.Hash]eth.BlockInfo),
 		transactions: make(map[common.Hash]types.Transactions),
 		receipts:     make(map[common.Hash]types.Receipts),
 		numbers:      make(map[uint64]common.Hash),
 		head:         head,
-	}
+	}, nil
 }
 
-func (l *OracleL1Chain) L1BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L1BlockRef, error) {
+func (l *OracleBackedL1Chain) L1BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L1BlockRef, error) {
 	return eth.InfoToL1BlockRef(l.head), nil
 }
 
-func (l *OracleL1Chain) L1BlockRefByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
+func (l *OracleBackedL1Chain) L1BlockRefByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
 	hash, ok := l.numbers[number]
 	if ok {
 		return l.L1BlockRefByHash(ctx, hash)
@@ -52,7 +63,7 @@ func (l *OracleL1Chain) L1BlockRefByNumber(ctx context.Context, number uint64) (
 	return eth.InfoToL1BlockRef(block), nil
 }
 
-func (l *OracleL1Chain) FetchReceipts(ctx context.Context, blockHash common.Hash) (eth.BlockInfo, types.Receipts, error) {
+func (l *OracleBackedL1Chain) FetchReceipts(ctx context.Context, blockHash common.Hash) (eth.BlockInfo, types.Receipts, error) {
 	info, err := l.InfoByHash(ctx, blockHash)
 	if err != nil {
 		return nil, nil, err
@@ -71,7 +82,7 @@ func (l *OracleL1Chain) FetchReceipts(ctx context.Context, blockHash common.Hash
 	return info, receipts, nil
 }
 
-func (l *OracleL1Chain) L1BlockRefByHash(ctx context.Context, hash common.Hash) (eth.L1BlockRef, error) {
+func (l *OracleBackedL1Chain) L1BlockRefByHash(ctx context.Context, hash common.Hash) (eth.L1BlockRef, error) {
 	info, err := l.InfoByHash(ctx, hash)
 	if err != nil {
 		return eth.L1BlockRef{}, fmt.Errorf("l1 block ref err: %w", err)
@@ -79,11 +90,11 @@ func (l *OracleL1Chain) L1BlockRefByHash(ctx context.Context, hash common.Hash) 
 	return eth.InfoToL1BlockRef(info), nil
 }
 
-func (l *OracleL1Chain) InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error) {
+func (l *OracleBackedL1Chain) InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error) {
 	return l.headerByHash(ctx, hash)
 }
 
-func (l *OracleL1Chain) headerByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error) {
+func (l *OracleBackedL1Chain) headerByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error) {
 	info, ok := l.headers[hash]
 	if ok {
 		return info, nil
@@ -97,7 +108,7 @@ func (l *OracleL1Chain) headerByHash(ctx context.Context, hash common.Hash) (eth
 	return info, nil
 }
 
-func (l *OracleL1Chain) InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error) {
+func (l *OracleBackedL1Chain) InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error) {
 	header, err := l.headerByHash(ctx, hash)
 	if err != nil {
 		return nil, nil, err

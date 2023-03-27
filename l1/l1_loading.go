@@ -1,8 +1,9 @@
-package main
+package l1
 
 import (
 	"context"
 	"fmt"
+	"op-mordor/oracle"
 	"op-mordor/store"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,13 +12,17 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-type LoadingL1Chain struct {
+// LoadingL1Oracle is an implementation of oracle.L1Oracle that loads content from another node via JSON-RPC API.
+// Loaded data is written to a store.Store to make the pre-image data available for later execution without needing another node.
+type LoadingL1Oracle struct {
 	logger log.Logger
 	client *ethclient.Client
 	store  store.Store
 }
 
-func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Hash) (*types.Header, error) {
+var _ oracle.L1Oracle = (*LoadingL1Oracle)(nil)
+
+func (l *LoadingL1Oracle) FetchL1Header(ctx context.Context, blockHash common.Hash) (*types.Header, error) {
 	h, err := l.client.HeaderByHash(ctx, blockHash)
 	if err != nil {
 		return nil, err
@@ -30,7 +35,7 @@ func (l *LoadingL1Chain) FetchL1Header(ctx context.Context, blockHash common.Has
 	return h, nil
 }
 
-func (l *LoadingL1Chain) FetchL1BlockTransactions(ctx context.Context, blockHash common.Hash) (types.Transactions, error) {
+func (l *LoadingL1Oracle) FetchL1BlockTransactions(ctx context.Context, blockHash common.Hash) (types.Transactions, error) {
 	bl, err := l.client.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return nil, err
@@ -44,7 +49,7 @@ func (l *LoadingL1Chain) FetchL1BlockTransactions(ctx context.Context, blockHash
 	return txs, nil
 }
 
-func (l *LoadingL1Chain) FetchL1BlockReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
+func (l *LoadingL1Oracle) FetchL1BlockReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
 	transactions, err := l.FetchL1BlockTransactions(ctx, blockHash)
 	if err != nil {
 		return nil, err
@@ -65,10 +70,10 @@ func (l *LoadingL1Chain) FetchL1BlockReceipts(ctx context.Context, blockHash com
 	return receipts, nil
 }
 
-var _ L1PreimageOracle = (*LoadingL1Chain)(nil)
+var _ oracle.L1Oracle = (*LoadingL1Oracle)(nil)
 
-func NewLoadingL1Chain(logger log.Logger, client *ethclient.Client, store store.Store) L1PreimageOracle {
-	return &LoadingL1Chain{
+func NewLoadingL1Chain(logger log.Logger, client *ethclient.Client, store store.Store) oracle.L1Oracle {
+	return &LoadingL1Oracle{
 		logger: logger,
 		client: client,
 		store:  store,

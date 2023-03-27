@@ -1,4 +1,4 @@
-package main
+package l2
 
 import (
 	"context"
@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	beaconConsensus "github.com/ethereum/go-ethereum/consensus/beacon"
@@ -47,7 +49,7 @@ var _ core.ChainContext = (*EngineChainContext)(nil)
 type EngineAPI struct {
 	log log.Logger
 
-	sugar    *L2Sugar
+	chain    *OracleBackedL2Chain
 	chainCtx *EngineChainContext
 	vmCfg    vm.Config
 
@@ -71,19 +73,19 @@ type EngineAPI struct {
 	payloadID beacon.PayloadID // ID of payload that is currently being built
 }
 
-func NewEngineAPI(log log.Logger, cfg *params.ChainConfig, sugar *L2Sugar, preDB *PreimageBackedDB) *EngineAPI {
+func NewEngineAPI(log log.Logger, cfg *params.ChainConfig, chain *OracleBackedL2Chain, preDB *OracleBackedDB) *EngineAPI {
 	cons := beaconConsensus.New(nil)
 
 	return &EngineAPI{
 		log:   log,
-		sugar: sugar,
+		chain: chain,
 		chainCtx: &EngineChainContext{
 			eng:       cons,
-			getHeader: sugar.getHeader,
+			getHeader: chain.getHeader,
 		},
 		vmCfg:      vm.Config{},
-		safe:       sugar.head.Hash(),
-		finalized:  eth.BlockID{Hash: sugar.head.Hash(), Number: sugar.head.NumberU64()},
+		safe:       chain.head.Hash(),
+		finalized:  eth.BlockID{Hash: chain.head.Hash(), Number: chain.head.NumberU64()},
 		l2Database: preDB,
 		l2Cfg:      cfg,
 		// building state starts nil
@@ -116,6 +118,17 @@ func computePayloadId(headBlockHash common.Hash, params *eth.PayloadAttributes) 
 	return out
 }
 
+func (ea *EngineAPI) L2OutputRoot() (eth.Bytes32, error) {
+	l2OutputVersion := eth.Bytes32{}
+	outBlock := ea.chain.currentBlock()
+	stateDB, err := state.New(outBlock.Root(), state.NewDatabase(ea.l2Database), nil)
+	if err != nil {
+		return eth.Bytes32{}, fmt.Errorf("failed to open L2 state db at block %s: %w", outBlock.Hash(), err)
+	}
+	withdrawalsTrie := stateDB.StorageTrie(predeploys.L2ToL1MessagePasserAddr)
+	return rollup.ComputeL2OutputRoot(l2OutputVersion, outBlock.Hash(), outBlock.Root(), withdrawalsTrie.Hash()), nil
+}
+
 func (ea *EngineAPI) setFinalized(id eth.BlockID) {
 	ea.finalized = id
 }
@@ -129,7 +142,7 @@ func (ea *EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttribute
 		ea.log.Warn("started building new block without ending previous block", "previous", ea.l2BuildingHeader, "prev_payload_id", ea.payloadID)
 	}
 
-	parentHeader := ea.sugar.getHeaderByHash(parent)
+	parentHeader := ea.chain.getHeaderByHash(parent)
 	if parentHeader == nil {
 		return fmt.Errorf("uknown parent block: %s", parent)
 	}
@@ -224,7 +237,7 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 	// Check whether we have the block yet in our database or not. If not, we'll
 	// need to either trigger a sync, or to reject this forkchoice update for a
 	// reason.
-	block := ea.sugar.getBlockInfoByHash(state.HeadBlockHash)
+	block := ea.chain.getBlockInfoByHash(state.HeadBlockHash)
 	if block == nil {
 		// TODO: syncing not supported yet
 		return STATUS_SYNCING, nil
@@ -235,9 +248,9 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 			PayloadID:     id,
 		}
 	}
-	if ea.sugar.getBlockHashByNumber(block.NumberU64()) != state.HeadBlockHash {
+	if ea.chain.getBlockHashByNumber(block.NumberU64()) != state.HeadBlockHash {
 		return nil, fmt.Errorf("cannot reorg! from %s to %s", block.Hash(), state.HeadBlockHash)
-	} else if ea.sugar.CurrentBlock().Hash() == state.HeadBlockHash {
+	} else if ea.chain.currentBlock().Hash() == state.HeadBlockHash {
 		// If the specified head matches with our local head, do nothing and keep
 		// generating the payload. It's a special corner case that a few slots are
 		// missing and we are requested to generate the payload in slot.
@@ -249,11 +262,11 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 	// chain final and completely in PoS mode.
 	if state.FinalizedBlockHash != (common.Hash{}) {
 		// If the finalized block is not in our canonical tree, somethings wrong
-		finalBlock, err := ea.sugar.L2BlockRefByHash(context.Background(), state.FinalizedBlockHash)
+		finalBlock, err := ea.chain.L2BlockRefByHash(context.Background(), state.FinalizedBlockHash)
 		if err != nil {
 			ea.log.Warn("Final block not available in database", "hash", state.FinalizedBlockHash)
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("final block not available in database"))
-		} else if ea.sugar.getBlockHashByNumber(finalBlock.Number) != state.FinalizedBlockHash {
+		} else if ea.chain.getBlockHashByNumber(finalBlock.Number) != state.FinalizedBlockHash {
 			ea.log.Warn("Final block not in canonical chain", "number", block.NumberU64(), "hash", state.HeadBlockHash)
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("final block not in canonical chain"))
 		}
@@ -262,12 +275,12 @@ func (ea *EngineAPI) ForkchoiceUpdate(ctx context.Context, state *eth.Forkchoice
 	}
 	// Check if the safe block hash is in our canonical tree, if not somethings wrong
 	if state.SafeBlockHash != (common.Hash{}) {
-		safeBlock := ea.sugar.getBlockInfoByHash(state.SafeBlockHash)
+		safeBlock := ea.chain.getBlockInfoByHash(state.SafeBlockHash)
 		if safeBlock == nil {
 			ea.log.Warn("Safe block not available in database")
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("safe block not available in database"))
 		}
-		if ea.sugar.getBlockHashByNumber(safeBlock.NumberU64()) != state.SafeBlockHash {
+		if ea.chain.getBlockHashByNumber(safeBlock.NumberU64()) != state.SafeBlockHash {
 			ea.log.Warn("Safe block not in canonical chain")
 			return STATUS_INVALID, beacon.InvalidForkChoiceState.With(errors.New("safe block not in canonical chain"))
 		}
@@ -318,13 +331,13 @@ func (ea *EngineAPI) NewPayload(ctx context.Context, payload *eth.ExecutionPaylo
 	// TODO: skipping known-block check
 	// TODO: skipping invalid ancestor check (i.e. not remembering previously failed blocks)
 
-	parent := ea.sugar.getBlockInfoByHash(block.ParentHash())
+	parent := ea.chain.getBlockInfoByHash(block.ParentHash())
 	if parent == nil {
 		// TODO: hack, saying we accepted if we don't know the parent block. Might want to return critical error if we can't actually sync.
 		return &eth.PayloadStatusV1{Status: eth.ExecutionAccepted, LatestValidHash: nil}, nil
 	}
-	ea.sugar.blocks[block.Hash()] = block // TODO setter
-	ea.sugar.SetHead(eth.HeaderBlockInfo(block.Header()))
+	ea.chain.blocks[block.Hash()] = block // TODO setter
+	ea.chain.SetHead(eth.HeaderBlockInfo(block.Header()))
 	// TODO: Don't log the json...
 	json, _ := block.Header().MarshalJSON()
 	ea.log.Info("Produced block", "block", string(json))
@@ -333,7 +346,7 @@ func (ea *EngineAPI) NewPayload(ctx context.Context, payload *eth.ExecutionPaylo
 }
 
 func (ea *EngineAPI) invalid(err error, latestValid *types.Header) *eth.PayloadStatusV1 {
-	currentHash := ea.sugar.CurrentBlock().Hash()
+	currentHash := ea.chain.currentBlock().Hash()
 	if latestValid != nil {
 		// Set latest valid hash to 0x0 if parent is PoW block
 		currentHash = common.Hash{}

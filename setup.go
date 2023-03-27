@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"op-mordor/l1"
+	"op-mordor/l2"
+	"op-mordor/oracle"
 	"op-mordor/store"
 	"os"
 	"time"
@@ -29,7 +32,7 @@ func setupEnv() {
 	}
 }
 
-func setupRpcOracles(logger log.Logger) (L1PreimageOracle, L2PreimageOracle, error) {
+func setupRpcOracles(logger log.Logger) (oracle.L1Oracle, oracle.L2Oracle, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
 	defer cancel()
 
@@ -46,7 +49,7 @@ func setupRpcOracles(logger log.Logger) (L1PreimageOracle, L2PreimageOracle, err
 		return nil, nil, fmt.Errorf("creating disk store: %w", err)
 	}
 
-	l1Oracle := NewLoadingL1Chain(logger, l1Client, dstore)
-	l2Oracle := NewLoadingL2Chain(logger, rpcClient, dstore, dstore)
+	l1Oracle := l1.NewLoadingL1Chain(logger, l1Client, dstore)
+	l2Oracle := l2.NewLoadingL2Chain(logger, rpcClient, dstore, dstore)
 	return l1Oracle, l2Oracle, nil
 }

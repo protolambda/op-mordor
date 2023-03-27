@@ -20,8 +20,8 @@ func (s BlockStore) StoreBlock(block *types.Block) error {
 	return s.StoreTransactions(block.TxHash(), block.Transactions())
 }
 
-// BlockStore augments a Store with a method StoreBlock to store blocks.
-// It reuses header and transactions storing of the Store.
+// BlockSource augments a Source with a method StoreBlock to read blocks.
+// It reuses header and transactions storing of the Source.
 type BlockSource struct {
 	Source
 }
